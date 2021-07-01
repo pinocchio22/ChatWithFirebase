@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "60276031967",
+    "project_id": "p2glet-chat",
+    "storage_bucket": "p2glet-chat.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:60276031967:android:7138cd0c9a1ec248ffc46a",
+        "android_client_info": {
+          "package_name": "com.example.firebase_chat"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "60276031967-mdvm4e9cntcu1rameurj534u7b7b4df3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDlOmitB7pT1hPX-OT6fj3lriRCoW1vbZM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "60276031967-mdvm4e9cntcu1rameurj534u7b7b4df3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
