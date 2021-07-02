@@ -2,8 +2,11 @@ package com.example.firebase_chat
 
 import android.app.Activity
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.os.Looper
+import android.view.WindowInsets
 import android.view.WindowManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -20,17 +23,21 @@ class SplashActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)
-        window.setFlags(
-            WindowManager.LayoutParams.FLAG_FULLSCREEN,
-            WindowManager.LayoutParams.FLAG_FULLSCREEN
-        )
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+//            window.insetsController?.hide(WindowInsets.Type.statusBars())
+//        } else {
+//            window.setFlags(
+//                    WindowManager.LayoutParams.FLAG_FULLSCREEN,
+//                    WindowManager.LayoutParams.FLAG_FULLSCREEN
+//            )
+//        }
 
         //FirebaseAuth.getInstance().signOut();
         val firestore = FirebaseFirestore.getInstance()
         val settings = FirebaseFirestoreSettings.Builder().build()
         firestore.firestoreSettings = settings
 
-        Handler().postDelayed({
+        Handler(Looper.getMainLooper()).postDelayed({   // handler -> looper.getmainlooper
             var mainIntent: Intent? = null
             mainIntent = if (FirebaseAuth.getInstance().currentUser == null) {
                 Intent(this@SplashActivity, LoginActivity::class.java)

@@ -50,11 +50,16 @@ dependencies {
 
     implementation platform('com.google.firebase:firebase-bom:28.2.0')
     implementation 'com.google.firebase:firebase-database-ktx'
-    implementation 'com.google.firebase:firebase-analytics-ktx'
+    implementation 'com.google.firebase:firebase-firestore:20.1.0'
+    implementation 'com.google.firebase:firebase-messaging:21.1.0'
+    implementation 'com.google.firebase:firebase-storage:15.0.2'
+    implementation 'com.google.firebase:firebase-iid:17.0.4'
 
-    //noinspection GradleCompatible,GradleCompatible
-    implementation 'com.android.support:recyclerview-v7:26.1.0'
-    implementation 'com.google.firebase:firebase-auth:19.1.0'
+    implementation fileTree(dir: 'libs', includes: ['*jar'])
 
+    implementation 'com.github.chrisbanes:PhotoView:latest.release.here'
+
+    implementation 'com.github.bumptech.glide:glide:4.12.0'
+    annotationProcessor 'com.github.bumptech.glide:compiler:4.12.0'
 
     }
