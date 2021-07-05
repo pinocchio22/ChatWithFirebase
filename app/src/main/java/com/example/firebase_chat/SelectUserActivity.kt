@@ -104,7 +104,7 @@ class SelectUserActivity : AppCompatActivity() {
         }
     }
 
-    internal inner class RecyclerViewAdapter(query: Query?) :
+    inner class RecyclerViewAdapter(query: Query?) :
         FirestoreAdapter<CustomViewHolder?>(query) {
         private val requestOptions: RequestOptions = RequestOptions().transforms(CenterCrop(), RoundedCorners(90))!!
         private val storageReference: StorageReference
