@@ -1,24 +1,49 @@
 package com.example.firebase_chat
 
+import android.Manifest
+import android.Manifest.permission.WRITE_EXTERNAL_STORAGE
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.ProgressDialog
+import android.content.ContentResolver
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.database.Cursor
+import android.graphics.Bitmap
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.provider.OpenableColumns
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.EditText
+import android.webkit.MimeTypeMap
+import android.widget.*
+import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.bitmap.CenterCrop
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners
+import com.bumptech.glide.request.RequestOptions
+import com.bumptech.glide.request.target.SimpleTarget
+import com.bumptech.glide.request.transition.Transition
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.*
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
+import com.google.gson.Gson
+import com.squareup.okhttp.*
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
+
 
 /**
  * @author CHOI
@@ -31,24 +56,28 @@ class ChatFragment : Fragment() {
     val rootPath = Util9.getRootPath() + "/DirectTalk9/"
     val PICK_FROM_ALBUM = 1
     val PICK_FROM_FILE = 2
+
     val sendBtn : Button? = null
     val imageBtn : Button? = null
     val fileBtn : Button? = null
     val msg_input : EditText?= null
     val recyclerView: RecyclerView? = null
-    var mAdapter : SelectUserActivity.RecyclerViewAdapter? = null
+    private var mAdapter: RecyclerViewAdapter? = null
+
     @SuppressLint("SimpleDataFormat")   val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm")
     @SuppressLint("SimpleDataFormat")   val dateFormatDay = SimpleDateFormat("yyyy-MM-dd ")
     @SuppressLint("SimpleDataFormat")   val dateFormatHour = SimpleDateFormat("aa HH:mm")
+
     var roomID: String? = null
     var myUid: String? = null
     var toUid: String? = null
+
     val userList: HashMap<String, UserModel> = hashMapOf<String, UserModel>()
-    val listenerRegistration: ListenerRegistration? = null
+    var listenerRegistration: ListenerRegistration? = null
     var firestore: FirebaseFirestore? = null
     var storageReference: StorageReference? = null
     var linearLayoutManager: LinearLayoutManager? = null
-    val progressDialog: ProgressDialog? = null
+    var progressDialog: ProgressDialog? = null
     var userCount = 0
 
    companion object{
@@ -233,4 +262,414 @@ class ChatFragment : Fragment() {
             }
         }
     }
+
+    fun setUnread2Read() {
+        if (roomID == null) return
+        firestore!!.collection("rooms").document(roomID!!).get().addOnCompleteListener {
+            if (!it.isSuccessful) {
+                return@addOnCompleteListener
+            }
+            val document = it.result
+            val users = document!!.get("users") as MutableMap<String?, Long>
+            users!![myUid!!] = 0.toLong()
+            document.reference.update("users", users)
+        }
+    }
+
+    internal fun sendGCM() {
+        val gson = Gson()
+        val notificationModel = NotificationModel()
+        notificationModel.notification.title = userList[myUid]?.usernm
+        notificationModel.notification.body = msg_input!!.text.toString()
+        notificationModel.data.title = userList[myUid]?.usernm
+        notificationModel.data.body = msg_input!!.text.toString()
+        for ((_, value) in userList) {
+            if (myUid == value.uid) continue
+            notificationModel.to = value.token
+            val requestBody: RequestBody? = RequestBody.create(
+                    MediaType.parse("application/json; charset=utf8"),
+                    gson.toJson(notificationModel)
+            )
+            val request: Request? = Request.Builder()
+                    .header("Content-Type", "application/json")
+                    .addHeader("Authorization", "key=")
+                    .url("https://fcm.googleapis.com/fcm/send")
+                    .post(requestBody)
+                    .build()
+            val okHttpClient = OkHttpClient()
+            okHttpClient.newCall(request).enqueue(object : Callback {
+                override fun onFailure(request: Request?, e: IOException?) {}
+
+                @Throws(IOException::class)
+                override fun onResponse(response: Response?) {
+                }
+            })
+        }
+    }
+
+    // uploading image/file
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (resultCode != Activity.RESULT_OK) return
+
+        val fileUri : Uri? = data!!.data
+        val filename : String = Util9.getUniqueValue()
+        showProgressDialog("Uploading selected File.")
+        val fileinfo : ChatModel.FileInfo =
+                getFileDetailFromUri(requireContext(), fileUri)!!
+        storageReference!!.child("files/$filename").putFile(fileUri!!)
+                .addOnCompleteListener {
+            sendMessage(filename, requestCode.toString(), fileinfo)
+            hideProgressDialog()
+        }
+        if (requestCode != PICK_FROM_ALBUM) {
+            return
+        }
+
+        // small image
+        Glide.with(requireContext())
+                .asBitmap()
+                .load(fileUri)
+                .apply(RequestOptions().override(150, 150))
+                .into(object : SimpleTarget<Bitmap?>() {
+                    override fun onResourceReady(
+                            resource: Bitmap,
+                            transition: Transition<in Bitmap?>?
+                    ) {
+                        val baos = ByteArrayOutputStream()
+                        resource.compress(Bitmap.CompressFormat.JPEG, 100, baos)
+                        val data: ByteArray? = baos.toByteArray()
+                        storageReference!!.child("filesmall/$filename").putBytes(data!!)
+                    }
+                })
+    }
+
+    fun showProgressDialog(title: String?) {
+        if (progressDialog == null) {
+            progressDialog = ProgressDialog(context)
+        }
+        progressDialog?.setIndeterminate(true)
+        progressDialog?.setTitle(title)
+        progressDialog?.setMessage("Please wait..")
+        progressDialog?.setCancelable(false)
+        progressDialog?.show()
+    }
+
+    fun getFileDetailFromUri(context: Context, uri: Uri?): ChatModel.FileInfo? {
+        if (uri == null) {
+            return null
+        }
+        val fileDetail : ChatModel.FileInfo = ChatModel.FileInfo()
+        // File Scheme.
+        if (ContentResolver.SCHEME_FILE == uri.scheme) {
+            val file = File(uri.path)
+            fileDetail.filename = file.name
+            fileDetail.filesize = Util9.size2String(file.length())
+        }
+        else if (ContentResolver.SCHEME_CONTENT == uri.scheme) {
+            val returnCursor : Cursor? =
+                    context.contentResolver.query(uri, null, null, null, null)
+            if (returnCursor != null && returnCursor.moveToFirst()) {
+                val nameIndex =
+                        returnCursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                val sizeIndex =
+                        returnCursor.getColumnIndex(OpenableColumns.SIZE)
+                fileDetail.filename = returnCursor.getString(nameIndex)
+                fileDetail.filesize = Util9.size2String(returnCursor.getLong(sizeIndex))
+                returnCursor.close()
+            }
+        }
+        return fileDetail
+    }
+
+    fun setProgressDialog(value: Int) {
+        progressDialog!!.progress = value
+    }
+
+    fun hideProgressDialog() = progressDialog!!.dismiss()
+
+    inner class RecyclerViewAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+        private val requestOptions = RequestOptions().transforms(CenterCrop(), RoundedCorners(90))
+        internal var messageList: MutableList<Message>? = null
+        private var beforeDay: String? = null
+        internal var beforeViewHolder: MessageViewHolder? = null
+
+
+        fun startListening() {
+            beforeDay = null
+            messageList?.clear()
+            val roomRef: CollectionReference? =
+                    firestore?.collection("rooms")?.document(roomID!!)?.collection("messages")
+            // my chatting room information
+
+            listenerRegistration = roomRef?.orderBy("timestamp")?.addSnapshotListener { p0, e ->
+                if (e != null) {
+                    return@addSnapshotListener
+                }
+                var message: Message
+                for (change in p0!!.documentChanges) {
+                    when (change.type) {
+                        DocumentChange.Type.ADDED -> {
+                            message = change.document.toObject<Message>(Message::class.java)
+                            if (message.readUsers!!.indexOf(myUid) == -1) {
+                                message.readUsers!!.add(myUid!!)
+                                change.document.reference
+                                        .update("readUsers", message.getReadUsers())
+                            }
+                            messageList?.add(message)
+                            notifyItemInserted(change.newIndex)
+                        }
+                        DocumentChange.Type.MODIFIED -> {
+                            message = change.document.toObject<Message>(
+                                    Message::class.java
+                            )
+                            messageList?.set(change.oldIndex, message)
+                            notifyItemChanged(change.oldIndex)
+                        }
+                        DocumentChange.Type.REMOVED -> {
+                            messageList?.removeAt(change.oldIndex)
+                            notifyItemRemoved(change.oldIndex)
+                        }
+                    }
+                }
+                recyclerView?.scrollToPosition(messageList!!.size - 1)
+
+            }
+        }
+
+        fun stopListening() {
+            if (listenerRegistration != null) {
+                listenerRegistration?.remove()
+                listenerRegistration = null
+            }
+            messageList?.clear()
+            notifyDataSetChanged()
+        }
+
+        override fun getItemViewType(position: Int): Int {
+            val message: Message = messageList!![position]
+            return if (myUid == message.uid) {
+                when (message.msgtype) {
+                    "1" -> R.layout.item_chatimage_right
+                    "2" -> R.layout.item_chatfile_right
+                    else -> R.layout.item_chatmsg_right
+                }
+            } else {
+                when (message.getMsgtype()) {
+                    "1" -> R.layout.item_chatimage_left
+                    "2" -> R.layout.item_chatfile_left
+                    else -> R.layout.item_chatmsg_left
+                }
+            }
+        }
+
+        override fun onCreateViewHolder(
+                parent: ViewGroup,
+                viewType: Int
+        ): RecyclerView.ViewHolder {
+            var view: View? = null
+            view = LayoutInflater.from(parent.context)
+                    .inflate(viewType, parent, false)
+            return MessageViewHolder(view)
+        }
+
+        @SuppressLint("SetTextI18n")
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+            val messageViewHolder: ChatFragment.MessageViewHolder =
+                    holder as ChatFragment.MessageViewHolder
+            val message: Message = messageList!![position]
+            setReadCounter(message, messageViewHolder.read_counter)
+            if ("0" == message.msgtype) {                                      // text message
+
+                messageViewHolder.msg_item.text = message.msg
+            } else if ("2" == message.msgtype) {                                      // file transfer
+
+                messageViewHolder.msg_item.setText(message.filename.toString() + "\n" + message.filesize)
+                messageViewHolder.filename = message.filename!!
+                messageViewHolder.realname = message.msg!!
+                val file =
+                        File(rootPath + message.filename)
+                if (file.exists()) {
+                    messageViewHolder.button_item.text = "Open File"
+                } else {
+                    messageViewHolder.button_item.text = "Download"
+                }
+            } else {                                                                // image transfer
+                messageViewHolder.realname = message.msg!!
+                Glide.with(context!!)
+                        .load(storageReference?.child("filesmall/" + message.msg))
+                        .apply(RequestOptions().override(1000, 1000))
+                        .into(messageViewHolder.img_item)
+            }
+            if (myUid != message.uid) {
+                val userModel: UserModel? = userList[message.uid]
+                messageViewHolder.msg_name.setText(userModel?.usernm)
+                if (userModel?.userphoto == null) {
+                    Glide.with(context!!).load(R.drawable.user)
+                            .apply(requestOptions)
+                            .into(messageViewHolder.user_photo)
+                } else {
+                    Glide.with(context!!)
+                            .load(storageReference?.child("userPhoto/" + userModel.userphoto))
+                            .apply(requestOptions)
+                            .into(messageViewHolder.user_photo)
+                }
+            }
+            messageViewHolder.divider.visibility = View.INVISIBLE
+            messageViewHolder.divider.layoutParams.height = 0
+            messageViewHolder.timestamp.text = ""
+            if (message.timestamp == null) {
+                return
+            }
+            val day: String = dateFormatDay.format(message.timestamp)
+            val timestamp: String = dateFormatHour.format(message.timestamp)
+            messageViewHolder.timestamp.text = timestamp
+            if (position == 0) {
+                messageViewHolder.divider_date.text = day
+                messageViewHolder.divider.visibility = View.VISIBLE
+                messageViewHolder.divider.layoutParams.height = 60
+            }
+            /*messageViewHolder.timestamp.setText("");
+        if (message.getTimestamp()==null) {return;}
+
+        String day = dateFormatDay.format( message.getTimestamp());
+        String timestamp = dateFormatHour.format( message.getTimestamp());
+
+        messageViewHolder.timestamp.setText(timestamp);
+
+        if (position==0) {
+            messageViewHolder.divider_date.setText(day);
+            messageViewHolder.divider.setVisibility(View.VISIBLE);
+            messageViewHolder.divider.getLayoutParams().height = 60;
+        };
+        if (!day.equals(beforeDay) && beforeDay!=null) {
+            beforeViewHolder.divider_date.setText(beforeDay);
+            beforeViewHolder.divider.setVisibility(View.VISIBLE);
+            beforeViewHolder.divider.getLayoutParams().height = 60;
+        }
+        beforeViewHolder = messageViewHolder;
+        beforeDay = day;*/ else {
+                val beforeMsg: Message = messageList!![position - 1]
+                val beforeDay: String = dateFormatDay.format(beforeMsg.timestamp)
+                if (day != beforeDay && beforeDay != null) {
+                    messageViewHolder.divider_date.text = day
+                    messageViewHolder.divider.visibility = View.VISIBLE
+                    messageViewHolder.divider.layoutParams.height = 60
+                }
+            }
+        }
+
+        private fun setReadCounter(message: Message, textView: TextView) {
+            val cnt: Int = userCount - message.readUsers!!.size
+            if (cnt > 0) {
+                textView.visibility = View.VISIBLE
+                textView.text = cnt.toString()
+            } else {
+                textView.visibility = View.INVISIBLE
+            }
+        }
+
+        override fun getItemCount() = messageList!!.size
+
+        init {
+            val dir = File(rootPath)
+            if (!dir.exists()) {
+                if (!Util9.isPermissionGranted(
+                                activity!!,
+                                Manifest.permission.WRITE_EXTERNAL_STORAGE
+                        )
+                ) {
+
+                } else dir.mkdirs()
+            }
+            messageList = ArrayList<Message>()
+            setUnread2Read()
+            startListening()
+        }
+    }
+
+
+    inner class MessageViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        var user_photo: ImageView = view.findViewById(R.id.user_photo)
+        var msg_item: TextView = view.findViewById(R.id.msg_item)
+        var img_item: ImageView = view.findViewById(R.id.img_item) // only item_chatimage_
+        var msg_name: TextView = view.findViewById(R.id.msg_name)
+        var timestamp: TextView = view.findViewById(R.id.timestamp)
+        var read_counter: TextView = view.findViewById(R.id.read_counter)
+        var divider: LinearLayout = view.findViewById(R.id.divider)
+        var divider_date: TextView = view.findViewById(R.id.divider_date)
+        var button_item: TextView = view.findViewById(R.id.button_item) // only item_chatfile_
+        var msgLine_item: LinearLayout = view.findViewById(R.id.msgLine_item) // only item_chatfile_
+        var filename: String = ""
+        var realname: String = ""
+
+
+        var downloadClickListener = object : View.OnClickListener {
+            override fun onClick(view: View) {
+                if ("Download" == button_item.text) {
+                    download()
+                } else {
+                    openWith()
+                }
+            }
+
+            fun download() {
+                if (!Util9.isPermissionGranted(activity!!, WRITE_EXTERNAL_STORAGE)
+                ) {
+                    return
+                }
+                showProgressDialog("Downloading File.")
+                val localFile = File(rootPath, filename)
+                storageReference?.child("files/" + realname)?.getFile(localFile)?.addOnSuccessListener{
+                    button_item.setText("Open File")
+                    hideProgressDialog()
+                    Log.e("DirectTalk9 ", "local file created $localFile")
+                }?.addOnFailureListener{
+                    Log.e("DirectTalk9 ", "local file not created $it")
+                }
+            }
+
+            @SuppressLint("ObsoleteSdkInt")
+            fun openWith() {
+                val newFile = File(rootPath + filename)
+                val mime = MimeTypeMap.getSingleton()
+                val ext = newFile.name.substring(newFile.name.lastIndexOf(".") + 1)
+                val type = mime.getMimeTypeFromExtension(ext)
+                val intent = Intent(Intent.ACTION_VIEW)
+                val uri: Uri
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    uri = FileProvider.getUriForFile(context!!, activity!!.packageName + ".provider", newFile)
+                    val resInfoList = activity!!.packageManager
+                            .queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+                    for (resolveInfo in resInfoList) {
+                        val packageName = resolveInfo.activityInfo.packageName
+                        activity!!.grantUriPermission(packageName, uri,
+                                Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    }
+                } else {
+                    uri = Uri.fromFile(newFile)
+                }
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                intent.setDataAndType(uri, type)//"application/vnd.android.package-archive");
+                startActivity(Intent.createChooser(intent, "Your title"))
+            }
+        }
+        // photo view
+        private var imageClickListener = View.OnClickListener {
+            val intent = Intent(context, ViewPagerActivity::class.java)
+            intent.putExtra("roomID", roomID)
+            intent.putExtra("realname", realname)
+            startActivity(intent)
+        }
+
+        // file download and open
+        init {
+            // for file
+            msgLine_item.setOnClickListener(downloadClickListener)
+            img_item.setOnClickListener(imageClickListener)
+        }
+
+
+    }
+
 }
