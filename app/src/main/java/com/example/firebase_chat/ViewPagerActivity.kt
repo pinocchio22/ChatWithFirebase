@@ -13,6 +13,7 @@ import androidx.appcompat.widget.Toolbar
 import androidx.viewpager.widget.PagerAdapter
 import androidx.viewpager.widget.ViewPager
 import com.bumptech.glide.Glide
+import com.example.firebase_chat.databinding.ActivityViewPagerBinding
 import com.google.android.gms.tasks.OnCompleteListener
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage

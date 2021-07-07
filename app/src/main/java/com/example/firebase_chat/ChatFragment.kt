@@ -81,7 +81,7 @@ class ChatFragment : Fragment() {
     var userCount = 0
 
    companion object{
-       fun getinstance(toUid: String?, roomID: String?) : ChatFragment{
+       fun getInstance(toUid: String?, roomID: String?) : ChatFragment{
            val thisFragment = ChatFragment()
            val bdl = Bundle()
            bdl.putString("toUid", toUid)
@@ -668,8 +668,7 @@ class ChatFragment : Fragment() {
             msgLine_item.setOnClickListener(downloadClickListener)
             img_item.setOnClickListener(imageClickListener)
         }
-
-
     }
 
+    fun backPressed() {}
 }
