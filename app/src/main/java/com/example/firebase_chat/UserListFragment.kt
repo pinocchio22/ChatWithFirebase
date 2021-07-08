@@ -27,7 +27,9 @@ import com.google.firebase.storage.StorageReference
  * @desc
  */
 class UserListFragment : Fragment() {
+
     private var firestoreAdapter: FirestoreAdapter<*>? = null
+
     override fun onStart() {
         super.onStart()
         if (firestoreAdapter != null) {

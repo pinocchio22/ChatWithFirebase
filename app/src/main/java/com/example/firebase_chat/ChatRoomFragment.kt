@@ -98,12 +98,12 @@ class ChatRoomFragment : Fragment() {
             // all users information
             listenerUsers = firestore.collection("users").addSnapshotListener(EventListener{ value, e ->
                             if (e != null) { return@EventListener}
-                            for (doc in value!!) { userList[doc.id] = doc.toObject(UserModel::class.java) }
-                            getroomInfo()
+                            for (doc in value!!) { userList[doc.id] = doc.toObject<UserModel>(UserModel::class.java) }
+                            getRoomInfo()
                     })
         }
         // my chatting room information
-        fun getroomInfo() {
+        fun getRoomInfo() {
                 // my chatting room information
                 listenerRegistration =
                         firestore.collection("rooms").whereGreaterThanOrEqualTo("users.$myUid", 0) //                    a.orderBy("timestamp", Query.Direction.DESCENDING)
@@ -123,11 +123,11 @@ class ChatRoomFragment : Fragment() {
                                     chatRoomModel.roomID = document.id
 
                                     if (message.msg != null) { // there are no last message
-                                        chatRoomModel.lastDatetime = simpleDateFormat.format(message.getTimestamp())
+                                        chatRoomModel.lastDatetime = simpleDateFormat.format(message.timestamp)
                                         when (message.msgtype) {
                                             "1" -> chatRoomModel.lastMsg = ("Image")
                                             "2" -> chatRoomModel.lastMsg = ("File")
-                                            else -> chatRoomModel.lastMsg = (message.getMsg())
+                                            else -> chatRoomModel.lastMsg = (message.msg)
                                         }
                                     }
                                     val users = document.get("users") as Map<String, Long>?
@@ -136,7 +136,7 @@ class ChatRoomFragment : Fragment() {
                                         if (myUid == key) {
                                             val unread = (users[key] as Long).toInt()
                                             unreadTotal += unread
-                                            chatRoomModel.setUnreadCount(unread)
+                                            chatRoomModel.unreadCount=unread
                                             break
                                         }
                                     }
@@ -188,7 +188,7 @@ class ChatRoomFragment : Fragment() {
             roomViewHolder.room_title.text = chatRoomModel.title
             roomViewHolder.last_msg.text = chatRoomModel.lastMsg
             roomViewHolder.last_time.text = chatRoomModel.lastDatetime
-            if (chatRoomModel.getPhoto() == null) {
+            if (chatRoomModel.photo == null) {
                 Glide.with(activity!!).load(R.drawable.user)
                         .apply(requestOptions)
                         .into(roomViewHolder.room_image)
@@ -218,8 +218,8 @@ class ChatRoomFragment : Fragment() {
             }
         }
 
-        private inner class RoomViewHolder internal constructor(view: View)
-            : RecyclerView.ViewHolder(view) {
+        private inner class RoomViewHolder internal constructor(view: View) :
+                RecyclerView.ViewHolder(view) {
             var room_image: ImageView = view.findViewById(R.id.room_image)
             var room_title: TextView = view.findViewById(R.id.room_title)
             var last_msg: TextView = view.findViewById(R.id.last_msg)

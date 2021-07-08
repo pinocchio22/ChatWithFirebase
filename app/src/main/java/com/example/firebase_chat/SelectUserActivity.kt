@@ -50,44 +50,43 @@ class SelectUserActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_select_user)
-        roomID = getIntent().getStringExtra("roomID")
+        roomID = intent.getStringExtra("roomID")
         firestoreAdapter = RecyclerViewAdapter(
             FirebaseFirestore.getInstance().collection("users").orderBy("usernm")
         )
         val recyclerView: RecyclerView = findViewById(R.id.recyclerView)
-        recyclerView.setLayoutManager(LinearLayoutManager(this))
-        recyclerView.setAdapter(firestoreAdapter)
+        recyclerView.layoutManager = LinearLayoutManager(this)
+        recyclerView.adapter = firestoreAdapter
         val makeRoomBtn: Button = findViewById(R.id.makeRoomBtn)
         if (roomID == null) makeRoomBtn.setOnClickListener(makeRoomClickListener) else makeRoomBtn.setOnClickListener(
             addRoomUserClickListener
         )
     }
 
-    var makeRoomClickListener = View.OnClickListener {
+    private var makeRoomClickListener = View.OnClickListener {
         if (selectedUsers.size < 2) {
-            Util9.showMessage(getApplicationContext(), "Please select 2 or more user")
+            Util9.showMessage(applicationContext, "Please select 2 or more user")
             return@OnClickListener
         }
         selectedUsers[FirebaseAuth.getInstance().currentUser!!.uid] = ""
         val newRoom = FirebaseFirestore.getInstance().collection("rooms").document()
         CreateChattingRoom(newRoom)
     }
-    var addRoomUserClickListener = View.OnClickListener {
+    private var addRoomUserClickListener = View.OnClickListener {
         if (selectedUsers.size < 1) {
-            Util9.showMessage(getApplicationContext(), "Please select 1 or more user")
+            Util9.showMessage(applicationContext, "Please select 1 or more user")
             return@OnClickListener
         }
         CreateChattingRoom(FirebaseFirestore.getInstance().collection("rooms").document(roomID!!))
     }
 
-    fun CreateChattingRoom(room: DocumentReference) {
+    private fun CreateChattingRoom(room: DocumentReference) {
         val uid = FirebaseAuth.getInstance().currentUser!!.uid
         val users = mutableMapOf<String, Int>()
         var title = ""
         for (key in selectedUsers.keys) {
             users[key] = 0
-            if (title.length < 20 && (key != uid)
-            ) {
+            if (title.length < 20 && (key != uid)) {
                 title += selectedUsers[key].toString() + ", "
             }
         }
@@ -106,9 +105,10 @@ class SelectUserActivity : AppCompatActivity() {
 
     inner class RecyclerViewAdapter(query: Query?) :
         FirestoreAdapter<CustomViewHolder?>(query) {
-        private val requestOptions: RequestOptions = RequestOptions().transforms(CenterCrop(), RoundedCorners(90))!!
-        private val storageReference: StorageReference
+        private val requestOptions: RequestOptions = RequestOptions().transforms(CenterCrop(), RoundedCorners(90))
+        private val storageReference: StorageReference = FirebaseStorage.getInstance().reference
         private val myUid = FirebaseAuth.getInstance().currentUser!!.uid
+
         @NonNull
         override fun onCreateViewHolder(@NonNull parent: ViewGroup, viewType: Int): CustomViewHolder {
             val view = LayoutInflater.from(parent.context)
@@ -120,23 +120,23 @@ class SelectUserActivity : AppCompatActivity() {
             val documentSnapshot: DocumentSnapshot = getSnapshot(position)
             val userModel = documentSnapshot.toObject(UserModel::class.java)!!
             if (myUid == userModel.uid) {
-                viewHolder.itemView.setVisibility(View.INVISIBLE)
-                viewHolder.itemView.getLayoutParams().height = 0
+                viewHolder.itemView.visibility = View.INVISIBLE
+                viewHolder.itemView.layoutParams.height = 0
                 return
             }
             viewHolder.user_name.text = userModel.usernm
 
             if (userModel.userphoto == null) {
-                Glide.with(getApplicationContext()).load(R.drawable.user)
+                Glide.with(applicationContext).load(R.drawable.user)
                     .apply(requestOptions)
                     .into(viewHolder.user_photo)
             } else {
-                Glide.with(getApplicationContext())
+                Glide.with(applicationContext)
                     .load(storageReference.child("userPhoto/" + userModel.userphoto))
                     .apply(requestOptions)
                     .into(viewHolder.user_photo)
             }
-            viewHolder.userChk.setOnCheckedChangeListener { buttonView, isChecked ->
+            viewHolder.userChk.setOnCheckedChangeListener { _, isChecked ->
                 if (isChecked) {
                     selectedUsers[userModel.uid!!] = userModel.usernm!!
                 } else {
@@ -145,12 +145,9 @@ class SelectUserActivity : AppCompatActivity() {
             }
         }
 
-        init {
-            storageReference = FirebaseStorage.getInstance().reference
-        }
     }
 
-    public class CustomViewHolder internal constructor(view: View) :
+    class CustomViewHolder internal constructor(view: View) :
         RecyclerView.ViewHolder(view) {
         var user_photo: ImageView
         var user_name: TextView

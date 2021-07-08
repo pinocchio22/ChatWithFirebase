@@ -66,9 +66,8 @@ abstract class FirestoreAdapter<VH : RecyclerView.ViewHolder?>(query: Query?) :
         startListening()
     }
 
-    override fun getItemCount(): Int {
-        return mSnapshots.size
-    }
+    override fun getItemCount() = mSnapshots.size
+
 
     protected fun getSnapshot(index: Int): DocumentSnapshot {
         return mSnapshots[index]

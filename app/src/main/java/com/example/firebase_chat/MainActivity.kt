@@ -11,6 +11,7 @@ import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentPagerAdapter
 import androidx.viewpager.widget.ViewPager
 import com.example.firebase_chat.databinding.ActivityMainBinding
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.tabs.TabLayout
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -23,6 +24,7 @@ class MainActivity : AppCompatActivity() {
 
     private var mSectionsPagerAdapter: SectionsPagerAdapter? = null
     private var mViewPager: ViewPager? = null
+    private var makeRoomBtn: FloatingActionButton? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
 
@@ -35,7 +37,10 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(toolbar)
         mSectionsPagerAdapter = SectionsPagerAdapter(supportFragmentManager)
 
-        mViewPager?.adapter = mSectionsPagerAdapter
+
+        // Set up the ViewPager with the sections adapter.
+        mViewPager = findViewById(R.id.container) as ViewPager
+        binding.container.adapter = mSectionsPagerAdapter
         val tabLayout = binding.tabs
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab) {
@@ -45,7 +50,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onTabUnselected(tab: TabLayout.Tab) {
-                binding.makeRoomBtn.visibility = View.INVISIBLE
+                makeRoomBtn!!.visibility = View.INVISIBLE
             }
 
             override fun onTabReselected(tab: TabLayout.Tab) {}
@@ -53,14 +58,10 @@ class MainActivity : AppCompatActivity() {
         mViewPager?.addOnPageChangeListener(TabLayout.TabLayoutOnPageChangeListener(tabLayout))
         tabLayout.addOnTabSelectedListener(TabLayout.ViewPagerOnTabSelectedListener(mViewPager))
         sendRegistrationToServer()
-        binding.makeRoomBtn.visibility = View.INVISIBLE
-        binding.makeRoomBtn.setOnClickListener{ v ->
-            startActivity(
-                Intent(
-                    v.context,
-                    SelectUserActivity::class.java
-                )
-            )
+        makeRoomBtn = findViewById(R.id.makeRoomBtn)
+        makeRoomBtn!!.visibility = View.INVISIBLE
+        makeRoomBtn!!.setOnClickListener{ v ->
+            startActivity(Intent(v.context, SelectUserActivity::class.java))
         }
     }
 
@@ -101,8 +102,8 @@ class MainActivity : AppCompatActivity() {
         override fun getItem(position: Int): Fragment {
             return when (position) {
                 0 -> UserListFragment()
-                else -> ChatRoomFragment()
-//                else -> UserFragment()
+                1 -> ChatRoomFragment()
+                else -> UserFragment()
             }
         }
 
