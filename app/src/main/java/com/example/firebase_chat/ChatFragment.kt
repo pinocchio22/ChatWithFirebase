@@ -57,11 +57,7 @@ class ChatFragment : Fragment() {
     val PICK_FROM_ALBUM = 1
     val PICK_FROM_FILE = 2
 
-    val sendBtn : Button? = null
-    val imageBtn : Button? = null
-    val fileBtn : Button? = null
-    val msg_input : EditText?= null
-    val recyclerView: RecyclerView? = null
+    var recyclerView: RecyclerView? = null
     private var mAdapter: RecyclerViewAdapter? = null
 
     @SuppressLint("SimpleDataFormat")   val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm")
@@ -93,11 +89,21 @@ class ChatFragment : Fragment() {
 
 
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?,
+    ): View {
         val view: View = inflater.inflate(R.layout.fragment_chat, container, false)
+
+        var msg_input = view.findViewById<EditText>(R.id.msg_input)
+        var sendBtn = view.findViewById<Button>(R.id.sendBtn)
+        var imageBtn = view.findViewById<Button>(R.id.imageBtn)
+        var fileBtn = view.findViewById<Button>(R.id.fileBtn)
 
         linearLayoutManager = LinearLayoutManager(context)
         recyclerView?.layoutManager = linearLayoutManager
+        recyclerView = view.findViewById(R.id.recyclerView)
 
         sendBtn?.setOnClickListener{
             val msg = msg_input?.text.toString()
@@ -143,13 +149,14 @@ class ChatFragment : Fragment() {
         }
 
         recyclerView?.addOnLayoutChangeListener{ _, _, _, bottom, _, _, _, _, oldBottom ->
-            if (bottom < oldBottom) {
+            if (bottom < oldBottom && mAdapter != null) {
                 val lastAdapterItem = mAdapter!!.itemCount -1
                 recyclerView?.post{
                     var recyclerViewPointOffset = -1000000
                     val bottomView = linearLayoutManager?.findViewByPosition(lastAdapterItem)
                     if (bottomView != null) recyclerViewPointOffset = 0 - bottomView.height
-                    linearLayoutManager?.scrollToPositionWithOffset(lastAdapterItem, recyclerViewPointOffset)
+                    linearLayoutManager?.scrollToPositionWithOffset(lastAdapterItem,
+                        recyclerViewPointOffset)
                 }
             }
         }
@@ -157,6 +164,8 @@ class ChatFragment : Fragment() {
     }
 
     private fun sendMessage(msg: String, msgtype: String, fileinfo: ChatModel.FileInfo?) {
+        var sendBtn = view?.findViewById<Button>(R.id.sendBtn)
+
         sendBtn!!.isEnabled = false
         if (roomID == null) {             // create chatting room for two user
             roomID = firestore!!.collection("rooms").document().id
@@ -175,7 +184,7 @@ class ChatFragment : Fragment() {
 
         docRef.get().addOnCompleteListener {
             if (!it.isSuccessful) {
-                return@addOnCompleteListener
+                return@addOnCompleteListener}
                 val batch = firestore!!.batch()
                 // save last message
                 batch[docRef, messages] = SetOptions.merge()
@@ -187,7 +196,7 @@ class ChatFragment : Fragment() {
 
                 // inc unread message count
                 val document = it.result
-                val users = document!!["users"] as MutableMap<String, Long>?
+                val users = document!!.get("users") as MutableMap<String, Long>?
                 for (key in users!!.keys) {
                     if (myUid != key) users[key] = users[key]!! + 1
                 }
@@ -198,7 +207,6 @@ class ChatFragment : Fragment() {
                         sendBtn.isEnabled = true
                     }
                 }
-            }
         }
     }
 
@@ -252,11 +260,9 @@ class ChatFragment : Fragment() {
 
     fun getUserInfoFromServer(id: String?) {
         firestore!!.collection("users").document(id!!).get().addOnSuccessListener {
-            val userModel = it.toObject(
-                    UserModel::class.java
-            )
-            userList[userModel?.uid!!] = userModel
-            if (roomID != null!! && userCount == userList.size) {
+            val userModel = it.toObject(UserModel::class.java)
+            if(userModel?.uid != null) userList[userModel.uid!!] = userModel
+            if (roomID != null && userCount == userList.size) {
                 mAdapter = RecyclerViewAdapter()
                 recyclerView!!.adapter = mAdapter
             }
@@ -276,36 +282,36 @@ class ChatFragment : Fragment() {
         }
     }
 
-    internal fun sendGCM() {
-        val gson = Gson()
-        val notificationModel = NotificationModel()
-        notificationModel.notification.title = userList[myUid]?.usernm
-        notificationModel.notification.body = msg_input!!.text.toString()
-        notificationModel.data.title = userList[myUid]?.usernm
-        notificationModel.data.body = msg_input!!.text.toString()
-        for ((_, value) in userList) {
-            if (myUid == value.uid) continue
-            notificationModel.to = value.token
-            val requestBody: RequestBody? = RequestBody.create(
-                    MediaType.parse("application/json; charset=utf8"),
-                    gson.toJson(notificationModel)
-            )
-            val request: Request? = Request.Builder()
-                    .header("Content-Type", "application/json")
-                    .addHeader("Authorization", "key=")
-                    .url("https://fcm.googleapis.com/fcm/send")
-                    .post(requestBody)
-                    .build()
-            val okHttpClient = OkHttpClient()
-            okHttpClient.newCall(request).enqueue(object : Callback {
-                override fun onFailure(request: Request?, e: IOException?) {}
-
-                @Throws(IOException::class)
-                override fun onResponse(response: Response?) {
-                }
-            })
-        }
-    }
+//    internal fun sendGCM() {
+//        val gson = Gson()
+//        val notificationModel = NotificationModel()
+//        notificationModel.notification.title = userList[myUid]?.usernm
+//        notificationModel.notification.body = msg_input!!.text.toString()
+//        notificationModel.data.title = userList[myUid]?.usernm
+//        notificationModel.data.body = msg_input!!.text.toString()
+//        for ((_, value) in userList) {
+//            if (myUid == value.uid) continue
+//            notificationModel.to = value.token
+//            val requestBody: RequestBody? = RequestBody.create(
+//                MediaType.parse("application/json; charset=utf8"),
+//                gson.toJson(notificationModel)
+//            )
+//            val request: Request? = Request.Builder()
+//                    .header("Content-Type", "application/json")
+//                    .addHeader("Authorization", "key=")
+//                    .url("https://fcm.googleapis.com/fcm/send")
+//                    .post(requestBody)
+//                    .build()
+//            val okHttpClient = OkHttpClient()
+//            okHttpClient.newCall(request).enqueue(object : Callback {
+//                override fun onFailure(request: Request?, e: IOException?) {}
+//
+//                @Throws(IOException::class)
+//                override fun onResponse(response: Response?) {
+//                }
+//            })
+//        }
+//    }
 
     // uploading image/file
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -332,8 +338,8 @@ class ChatFragment : Fragment() {
                 .apply(RequestOptions().override(150, 150))
                 .into(object : SimpleTarget<Bitmap?>() {
                     override fun onResourceReady(
-                            resource: Bitmap,
-                            transition: Transition<in Bitmap?>?
+                        resource: Bitmap,
+                        transition: Transition<in Bitmap?>?,
                     ) {
                         val baos = ByteArrayOutputStream()
                         resource.compress(Bitmap.CompressFormat.JPEG, 100, baos)
@@ -413,14 +419,14 @@ class ChatFragment : Fragment() {
                             if (message.readUsers!!.indexOf(myUid) == -1) {
                                 message.readUsers!!.add(myUid!!)
                                 change.document.reference
-                                        .update("readUsers", message.getReadUsers())
+                                    .update("readUsers", message.getReadUsers())
                             }
                             messageList?.add(message)
                             notifyItemInserted(change.newIndex)
                         }
                         DocumentChange.Type.MODIFIED -> {
                             message = change.document.toObject<Message>(
-                                    Message::class.java
+                                Message::class.java
                             )
                             messageList?.set(change.oldIndex, message)
                             notifyItemChanged(change.oldIndex)
@@ -463,8 +469,8 @@ class ChatFragment : Fragment() {
         }
 
         override fun onCreateViewHolder(
-                parent: ViewGroup,
-                viewType: Int
+            parent: ViewGroup,
+            viewType: Int,
         ): RecyclerView.ViewHolder {
             var view: View? = null
             view = LayoutInflater.from(parent.context)
@@ -477,56 +483,58 @@ class ChatFragment : Fragment() {
             val messageViewHolder: ChatFragment.MessageViewHolder =
                     holder as ChatFragment.MessageViewHolder
             val message: Message = messageList!![position]
-            setReadCounter(message, messageViewHolder.read_counter)
+
+            if(messageViewHolder.read_counter != null)
+            setReadCounter(message, messageViewHolder.read_counter!!)
             if ("0" == message.msgtype) {                                      // text message
 
-                messageViewHolder.msg_item.text = message.msg
+                messageViewHolder.msg_item?.text = message.msg
             } else if ("2" == message.msgtype) {                                      // file transfer
 
-                messageViewHolder.msg_item.setText(message.filename.toString() + "\n" + message.filesize)
+                messageViewHolder.msg_item?.setText(message.filename.toString() + "\n" + message.filesize)
                 messageViewHolder.filename = message.filename!!
                 messageViewHolder.realname = message.msg!!
                 val file =
                         File(rootPath + message.filename)
                 if (file.exists()) {
-                    messageViewHolder.button_item.text = "Open File"
+                    messageViewHolder.button_item?.text = "Open File"
                 } else {
-                    messageViewHolder.button_item.text = "Download"
+                    messageViewHolder.button_item?.text = "Download"
                 }
             } else {                                                                // image transfer
                 messageViewHolder.realname = message.msg!!
                 Glide.with(context!!)
                         .load(storageReference?.child("filesmall/" + message.msg))
                         .apply(RequestOptions().override(1000, 1000))
-                        .into(messageViewHolder.img_item)
+                        .into(messageViewHolder.img_item!!)
             }
             if (myUid != message.uid) {
                 val userModel: UserModel? = userList[message.uid]
-                messageViewHolder.msg_name.setText(userModel?.usernm)
+                messageViewHolder.msg_name?.setText(userModel?.usernm)
                 if (userModel?.userphoto == null) {
                     Glide.with(context!!).load(R.drawable.user)
                             .apply(requestOptions)
-                            .into(messageViewHolder.user_photo)
+                            .into(messageViewHolder.user_photo!!)
                 } else {
                     Glide.with(context!!)
                             .load(storageReference?.child("userPhoto/" + userModel.userphoto))
                             .apply(requestOptions)
-                            .into(messageViewHolder.user_photo)
+                            .into(messageViewHolder.user_photo!!)
                 }
             }
-            messageViewHolder.divider.visibility = View.INVISIBLE
-            messageViewHolder.divider.layoutParams.height = 0
-            messageViewHolder.timestamp.text = ""
+            messageViewHolder.divider?.visibility = View.INVISIBLE
+            messageViewHolder.divider?.layoutParams?.height = 0
+            messageViewHolder.timestamp?.text = ""
             if (message.timestamp == null) {
                 return
             }
             val day: String = dateFormatDay.format(message.timestamp)
             val timestamp: String = dateFormatHour.format(message.timestamp)
-            messageViewHolder.timestamp.text = timestamp
+            messageViewHolder.timestamp?.text = timestamp
             if (position == 0) {
-                messageViewHolder.divider_date.text = day
-                messageViewHolder.divider.visibility = View.VISIBLE
-                messageViewHolder.divider.layoutParams.height = 60
+                messageViewHolder.divider_date?.text = day
+                messageViewHolder.divider?.visibility = View.VISIBLE
+                messageViewHolder.divider?.layoutParams?.height = 60
             }
             /*messageViewHolder.timestamp.setText("");
         if (message.getTimestamp()==null) {return;}
@@ -551,9 +559,9 @@ class ChatFragment : Fragment() {
                 val beforeMsg: Message = messageList!![position - 1]
                 val beforeDay: String = dateFormatDay.format(beforeMsg.timestamp)
                 if (day != beforeDay && beforeDay != null) {
-                    messageViewHolder.divider_date.text = day
-                    messageViewHolder.divider.visibility = View.VISIBLE
-                    messageViewHolder.divider.layoutParams.height = 60
+                    messageViewHolder.divider_date?.text = day
+                    messageViewHolder.divider?.visibility = View.VISIBLE
+                    messageViewHolder.divider?.layoutParams?.height = 60
                 }
             }
         }
@@ -574,9 +582,9 @@ class ChatFragment : Fragment() {
             val dir = File(rootPath)
             if (!dir.exists()) {
                 if (!Util9.isPermissionGranted(
-                                activity!!,
-                                Manifest.permission.WRITE_EXTERNAL_STORAGE
-                        )
+                        activity!!,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE
+                    )
                 ) {
 
                 } else dir.mkdirs()
@@ -589,23 +597,23 @@ class ChatFragment : Fragment() {
 
 
     inner class MessageViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        var user_photo: ImageView = view.findViewById(R.id.user_photo)
-        var msg_item: TextView = view.findViewById(R.id.msg_item)
-        var img_item: ImageView = view.findViewById(R.id.img_item) // only item_chatimage_
-        var msg_name: TextView = view.findViewById(R.id.msg_name)
-        var timestamp: TextView = view.findViewById(R.id.timestamp)
-        var read_counter: TextView = view.findViewById(R.id.read_counter)
-        var divider: LinearLayout = view.findViewById(R.id.divider)
-        var divider_date: TextView = view.findViewById(R.id.divider_date)
-        var button_item: TextView = view.findViewById(R.id.button_item) // only item_chatfile_
-        var msgLine_item: LinearLayout = view.findViewById(R.id.msgLine_item) // only item_chatfile_
+        var user_photo: ImageView? = view.findViewById(R.id.user_photo)
+        var msg_item: TextView? = view.findViewById(R.id.msg_item)
+        var img_item: ImageView? = view.findViewById(R.id.img_item) // only item_chatimage_
+        var msg_name: TextView? = view.findViewById(R.id.msg_name)
+        var timestamp: TextView? = view.findViewById(R.id.timestamp)
+        var read_counter: TextView? = view.findViewById(R.id.read_counter)
+        var divider: LinearLayout? = view.findViewById(R.id.divider)
+        var divider_date: TextView? = view.findViewById(R.id.divider_date)
+        var button_item: TextView? = view.findViewById(R.id.button_item) // only item_chatfile_
+        var msgLine_item: LinearLayout? = view.findViewById(R.id.msgLine_item) // only item_chatfile_
         var filename: String = ""
         var realname: String = ""
 
 
         var downloadClickListener = object : View.OnClickListener {
             override fun onClick(view: View) {
-                if ("Download" == button_item.text) {
+                if ("Download" == button_item?.text) {
                     download()
                 } else {
                     openWith()
@@ -620,7 +628,7 @@ class ChatFragment : Fragment() {
                 showProgressDialog("Downloading File.")
                 val localFile = File(rootPath, filename)
                 storageReference?.child("files/" + realname)?.getFile(localFile)?.addOnSuccessListener{
-                    button_item.setText("Open File")
+                    button_item?.setText("Open File")
                     hideProgressDialog()
                     Log.e("DirectTalk9 ", "local file created $localFile")
                 }?.addOnFailureListener{
@@ -637,13 +645,15 @@ class ChatFragment : Fragment() {
                 val intent = Intent(Intent.ACTION_VIEW)
                 val uri: Uri
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    uri = FileProvider.getUriForFile(context!!, activity!!.packageName + ".provider", newFile)
+                    uri = FileProvider.getUriForFile(context!!,
+                        activity!!.packageName + ".provider",
+                        newFile)
                     val resInfoList = activity!!.packageManager
                             .queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
                     for (resolveInfo in resInfoList) {
                         val packageName = resolveInfo.activityInfo.packageName
                         activity!!.grantUriPermission(packageName, uri,
-                                Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION
                         )
                     }
                 } else {
@@ -665,8 +675,8 @@ class ChatFragment : Fragment() {
         // file download and open
         init {
             // for file
-            msgLine_item.setOnClickListener(downloadClickListener)
-            img_item.setOnClickListener(imageClickListener)
+            msgLine_item?.setOnClickListener(downloadClickListener)
+            img_item?.setOnClickListener(imageClickListener)
         }
     }
 
