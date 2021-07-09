@@ -5,14 +5,14 @@ plugins {
 }
 
 android {
-    compileSdkVersion 29
-    buildToolsVersion "30.0.2"
+    compileSdkVersion 28
+    buildToolsVersion "28.0.3"
     buildFeatures {viewBinding = true}
 
         defaultConfig {
             applicationId "com.example.firebase_chat"
-            minSdkVersion 29
-            targetSdkVersion 29
+            minSdkVersion 28
+            targetSdkVersion 28
             versionCode 1
             versionName "1.0"
 

@@ -88,22 +88,15 @@ class ChatFragment : Fragment() {
    }
 
 
-
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?,
-    ): View {
-        val view: View = inflater.inflate(R.layout.fragment_chat, container, false)
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
 
         var msg_input = view.findViewById<EditText>(R.id.msg_input)
         var sendBtn = view.findViewById<Button>(R.id.sendBtn)
         var imageBtn = view.findViewById<Button>(R.id.imageBtn)
         var fileBtn = view.findViewById<Button>(R.id.fileBtn)
 
-        linearLayoutManager = LinearLayoutManager(context)
-        recyclerView?.layoutManager = linearLayoutManager
-        recyclerView = view.findViewById(R.id.recyclerView)
+
+        super.onViewCreated(view, savedInstanceState)
 
         sendBtn?.setOnClickListener{
             val msg = msg_input?.text.toString()
@@ -125,6 +118,21 @@ class ChatFragment : Fragment() {
             if (!hasFocus)
                 Util9.hideKeyboard(requireActivity())
         }
+
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?,
+    ): View {
+        val view: View = inflater.inflate(R.layout.fragment_chat, container, false)
+
+        linearLayoutManager = LinearLayoutManager(context)
+        recyclerView?.layoutManager = linearLayoutManager
+        recyclerView = view.findViewById(R.id.recyclerView)
+
+
         if(arguments != null) {
             roomID = arguments?.getString("roomID")
             toUid = arguments?.getString("toUid")
